@@ -752,6 +752,8 @@ class WiFiManager
     boolean       portalAbortResult   = false;
     boolean       storeSTAmode        = true; // option store persistent STA mode in connectwifi 
     int           timer               = 0;    // timer for debug throttle for numclients, and portal timeout messages
+
+    boolean       inWiFiSaveMode      = false;  // added by me
     
     // WiFiManagerParameter
     int         _paramsCount          = 0;

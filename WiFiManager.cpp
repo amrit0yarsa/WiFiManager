@@ -887,6 +887,13 @@ uint8_t WiFiManager::processConfigPortal(){
       else{
         // attempt sta connection to submitted _ssid, _pass
         uint8_t res = connectWifi(_ssid, _pass, _connectonsave) == WL_CONNECTED;
+        
+        // response to the wifiSave api
+        if (inWiFiSaveMode) {
+          server->send(200, "text/json", "{\"status\":"+String(_lastconxresult)+"}");
+          inWiFiSaveMode = false;
+        }
+
         if (res || (!_connectonsave)) {
           #ifdef WM_DEBUG_LEVEL
           if(!_connectonsave){
@@ -904,6 +911,8 @@ uint8_t WiFiManager::processConfigPortal(){
             #endif
             _savewificallback(); // @CALLBACK
           }
+
+
           if(!_connectonsave) return WL_IDLE_STATUS;
           if(_disableConfigPortal) shutdownConfigPortal();
           return WL_CONNECTED; // CONNECT SUCCESS
@@ -1809,85 +1818,38 @@ void WiFiManager::handleWifiSave() {
   #endif
   handleRequest();
 
-  //SAVE/connect here
-  _ssid = server->arg(F("s")).c_str();
-  _pass = server->arg(F("p")).c_str();
+  if (!inWiFiSaveMode) {
+    //SAVE/connect here
+    _ssid = server->arg(F("s")).c_str();
+    _pass = server->arg(F("p")).c_str();
 
-  #ifdef WM_DEBUG_LEVEL
-  String requestinfo = "SERVER_REQUEST\n----------------\n";
-  requestinfo += "URI: ";
-  requestinfo += server->uri();
-  requestinfo += "\nMethod: ";
-  requestinfo += (server->method() == HTTP_GET) ? "GET" : "POST";
-  requestinfo += "\nArguments: ";
-  requestinfo += server->args();
-  requestinfo += "\n";
-  for (uint8_t i = 0; i < server->args(); i++) {
-    requestinfo += " " + server->argName(i) + ": " + server->arg(i) + "\n";
-  }
-
-  DEBUG_WM(DEBUG_MAX,requestinfo);
-  #endif
-
-  // set static ips from server args
-  if (server->arg(FPSTR(S_ip)) != "") {
-    //_sta_static_ip.fromString(server->arg(FPSTR(S_ip));
-    String ip = server->arg(FPSTR(S_ip));
-    optionalIPFromString(&_sta_static_ip, ip.c_str());
     #ifdef WM_DEBUG_LEVEL
-    DEBUG_WM(DEBUG_DEV,F("static ip:"),ip);
+    String requestinfo = "SERVER_REQUEST\n----------------\n";
+    requestinfo += "URI: ";
+    requestinfo += server->uri();
+    requestinfo += "\nMethod: ";
+    requestinfo += (server->method() == HTTP_GET) ? "GET" : "POST";
+    requestinfo += "\nArguments: ";
+    requestinfo += server->args();
+    requestinfo += "\n";
+    for (uint8_t i = 0; i < server->args(); i++) {
+      requestinfo += " " + server->argName(i) + ": " + server->arg(i) + "\n";
+    }
+
+    DEBUG_WM(DEBUG_MAX,requestinfo);
     #endif
+
+    if (_presavewificallback != NULL) {
+      _presavewificallback();  // @CALLBACK 
+    }
+
+    if(_paramsInWifi) doParamSave();
+
+    String page;
+
+    connect = true; //signal ready to connect/reset process in processConfigPortal
+    inWiFiSaveMode = true;
   }
-  if (server->arg(FPSTR(S_gw)) != "") {
-    String gw = server->arg(FPSTR(S_gw));
-    optionalIPFromString(&_sta_static_gw, gw.c_str());
-    #ifdef WM_DEBUG_LEVEL
-    DEBUG_WM(DEBUG_DEV,F("static gateway:"),gw);
-    #endif
-  }
-  if (server->arg(FPSTR(S_sn)) != "") {
-    String sn = server->arg(FPSTR(S_sn));
-    optionalIPFromString(&_sta_static_sn, sn.c_str());
-    #ifdef WM_DEBUG_LEVEL
-    DEBUG_WM(DEBUG_DEV,F("static netmask:"),sn);
-    #endif
-  }
-  if (server->arg(FPSTR(S_dns)) != "") {
-    String dns = server->arg(FPSTR(S_dns));
-    optionalIPFromString(&_sta_static_dns, dns.c_str());
-    #ifdef WM_DEBUG_LEVEL
-    DEBUG_WM(DEBUG_DEV,F("static DNS:"),dns);
-    #endif
-  }
-
-  if (_presavewificallback != NULL) {
-    _presavewificallback();  // @CALLBACK 
-  }
-
-  if(_paramsInWifi) doParamSave();
-
-  String page;
-
-  if(_ssid == ""){
-    page = getHTTPHead(FPSTR(S_titlewifisettings)); // @token titleparamsaved
-    page += FPSTR(HTTP_PARAMSAVED);
-  }
-  else {
-    page = getHTTPHead(FPSTR(S_titlewifisaved)); // @token titlewifisaved
-    page += FPSTR(HTTP_SAVED);
-  }
-
-  if(_showBack) page += FPSTR(HTTP_BACKBTN);
-  page += FPSTR(HTTP_END);
-
-  server->sendHeader(FPSTR(HTTP_HEAD_CORS), FPSTR(HTTP_HEAD_CORS_ALLOW_ALL)); // @HTTPHEAD send cors
-  HTTPSend(page);
-
-  #ifdef WM_DEBUG_LEVEL
-  DEBUG_WM(DEBUG_DEV,F("Sent wifi save page"));
-  #endif
-
-  connect = true; //signal ready to connect/reset process in processConfigPortal
 }
 
 void WiFiManager::handleParamSave() {
