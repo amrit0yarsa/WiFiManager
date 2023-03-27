@@ -93,7 +93,9 @@
         #ifdef WM_WEBSERVERSHIM
             #include <WebServer.h>
         #else
-            #include <ESP8266WebServer.h>
+            // #include <ESP8266WebServer.h>
+            #include <ESPAsyncWebServer.h>
+            
             // Forthcoming official ? probably never happening
             // https://github.com/esp8266/ESPWebServer
         #endif
@@ -542,7 +544,7 @@ class WiFiManager
     bool          _cleanConnect           = false; // disconnect before connect in connectwifi, increases stability on connects
     bool          _connectonsave          = true; // connect to wifi when saving creds
     bool          _disableSTA             = false; // disable sta when starting ap, always
-    bool          _disableSTAConn         = true;  // disable sta when starting ap, if sta is not connected ( stability )
+    bool          _disableSTAConn         = false;  // disable sta when starting ap, if sta is not connected ( stability )
     bool          _channelSync            = false; // use same wifi sta channel when starting ap
     int32_t       _apChannel              = 0; // default channel to use for ap, 0 for auto
     bool          _apHidden               = false; // store softap hidden value
@@ -552,7 +554,7 @@ class WiFiManager
     bool          _aggresiveReconn        = true; // use an agrressive reconnect strategy, WILL delay conxs
                                                    // on some conn failure modes will add delays and many retries to work around esp and ap bugs, ie, anti de-auth protections
                                                    // https://github.com/tzapu/WiFiManager/issues/1067
-    bool          _allowExit              = true; // allow exit in nonblocking, else user exit/abort calls will be ignored including cptimeout
+    bool          _allowExit              = false; // allow exit in nonblocking, else user exit/abort calls will be ignored including cptimeout
 
     #ifdef ESP32
     wifi_event_id_t wm_event_id           = 0;
@@ -582,7 +584,7 @@ class WiFiManager
     boolean       _showInfoUpdate         = true;  // info page update button
     boolean       _showBack               = false; // show back button
     boolean       _enableConfigPortal     = true;  // FOR autoconnect - start config portal if autoconnect failed
-    boolean       _disableConfigPortal    = true;  // FOR autoconnect - stop config portal if cp wifi save
+    boolean       _disableConfigPortal    = false;  // FOR autoconnect - stop config portal if cp wifi save
     String        _hostname               = "";    // hostname for esp8266 for dhcp, and or MDNS
 
     const char*   _customHeadElement      = ""; // store custom head element html from user isnide <head>

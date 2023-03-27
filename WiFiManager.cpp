@@ -356,7 +356,7 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
       // Serial.println("Connected in " + (String)((millis()-_startconn)) + " ms");
       _lastconxresult = WL_CONNECTED;
 
-      if(_hostname != ""){
+      if(_hostname != "") {
         #ifdef WM_DEBUG_LEVEL
           DEBUG_WM(DEBUG_DEV,F("hostname: STA: "),getWiFiHostname());
         #endif
@@ -365,7 +365,7 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
     }
 
     #ifdef WM_DEBUG_LEVEL
-    DEBUG_WM(F("AutoConnect: FAILED"));
+    DEBUG_WM(F("AutoConnect: FAILED"))  ;
     #endif
   // }
   // else {
@@ -830,6 +830,7 @@ boolean WiFiManager::process(){
     #if defined(WM_MDNS) && defined(ESP8266)
     MDNS.update();
     #endif
+
 	
     if(webPortalActive || (configPortalActive && !_configPortalIsBlocking)){
       // if timed out or abort, break
@@ -847,7 +848,6 @@ boolean WiFiManager::process(){
         }
         return false;
       }
-
       uint8_t state = processConfigPortal(); // state is WL_IDLE or WL_CONNECTED/FAILED
       return state == WL_CONNECTED;
     }
@@ -889,10 +889,7 @@ uint8_t WiFiManager::processConfigPortal(){
         uint8_t res = connectWifi(_ssid, _pass, _connectonsave) == WL_CONNECTED;
         
         // response to the wifiSave api
-        if (inWiFiSaveMode) {
-          server->send(200, "text/json", "{\"status\":"+String(_lastconxresult)+"}");
-          inWiFiSaveMode = false;
-        }
+        inWiFiSaveMode = false;
 
         if (res || (!_connectonsave)) {
           #ifdef WM_DEBUG_LEVEL
@@ -911,7 +908,6 @@ uint8_t WiFiManager::processConfigPortal(){
             #endif
             _savewificallback(); // @CALLBACK
           }
-
 
           if(!_connectonsave) return WL_IDLE_STATUS;
           if(_disableConfigPortal) shutdownConfigPortal();
@@ -1056,7 +1052,7 @@ uint8_t WiFiManager::connectWifi(String ssid, String pass, bool connect) {
     // @todo connect=false seems to disconnect sta in begin() so not sure if _connectonsave is useful at all
     // skip wait if not connecting
     // if(connect){
-      if(_saveTimeout > 0){
+      if(_saveTimeout > 0) {
         connRes = waitForConnectResult(_saveTimeout); // use default save timeout for saves to prevent bugs in esp->waitforconnectresult loop
       }
       else {
@@ -1251,6 +1247,12 @@ uint8_t WiFiManager::waitForConnectResult(uint32_t timeout) {
   
   while(millis() < timeoutmillis) {
     status = WiFi.status();
+
+    if (inWiFiSaveMode) {
+      server->handleClient();
+      Serial.print(".");
+    }
+
     // @todo detect additional states, connect happens, then dhcp then get ip, there is some delay here, make sure not to timeout if waiting on IP
     if (status == WL_CONNECTED || status == WL_CONNECT_FAILED) {
       return status;
@@ -1551,7 +1553,13 @@ void WiFiManager::handleWiFiStatus(){
   #endif
   handleRequest();
 
-  server->send(200, "text/json", "{\"status\":"+String(_lastconxresult)+"}");
+  Serial.println("called");
+
+  if (inWiFiSaveMode) {
+    server->send(200, "text/json", "{\"status\":\"connecting...\"}");
+  } else {
+    server->send(200, "text/json", "{\"status\":"+String(_lastconxresult)+"}");
+  }
 }
 
 /** 
@@ -1590,8 +1598,7 @@ void WiFiManager::handleWifiSave() {
       _presavewificallback();  // @CALLBACK 
     }
 
-
-    String page;
+    server->send(200, "text/json", "{\"status\":\"connecting...\"}");
 
     connect = true; //signal ready to connect/reset process in processConfigPortal
     inWiFiSaveMode = true;
